@@ -1,0 +1,1006 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>比赛总表生成器 · =78D13=</title>
+<style>
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+                 "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    background: #0f1117;
+    color: #e6e8ee;
+    line-height: 1.6;
+  }
+
+  .page {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 0 16px 80px;
+  }
+
+  /* ---------- 页头 ---------- */
+  .site-header {
+    text-align: center;
+    padding: 34px 12px 26px;
+    border-bottom: 1px solid #232838;
+    margin-bottom: 26px;
+  }
+  .site-header .brand {
+    font-size: 34px;
+    font-weight: 800;
+    letter-spacing: 1.5px;
+    color: #f0b429;
+    text-shadow: 0 0 24px rgba(240, 180, 41, .28);
+  }
+  .site-header h1 {
+    font-size: 15px;
+    font-weight: 500;
+    color: #8b93a7;
+    margin: 10px 0 0;
+    letter-spacing: 3px;
+  }
+
+  /* ---------- 卡片 ---------- */
+  .card {
+    background: #181b24;
+    border: 1px solid #232838;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 18px;
+  }
+  .card h2 {
+    font-size: 16px;
+    margin: 0 0 14px;
+    padding-left: 10px;
+    border-left: 3px solid #4f8cff;
+    line-height: 1.2;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .hint {
+    font-size: 12px;
+    color: #8b93a7;
+    font-weight: 400;
+    border: none;
+  }
+  .hint.ok    { color: #5ed28f; }
+  .hint.error { color: #ff7a7a; }
+  .hint b { color: #4f8cff; }
+
+  .note {
+    background: #12151d;
+    border: 1px solid #232838;
+    border-left: 3px solid #4f8cff;
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 13px;
+    color: #8b93a7;
+    margin-bottom: 14px;
+    line-height: 1.7;
+  }
+  .note code {
+    background: #232838;
+    padding: 1px 6px;
+    border-radius: 4px;
+    color: #cfd5e3;
+  }
+
+  /* ---------- 输入 ---------- */
+  textarea {
+    width: 100%;
+    background: #12151d;
+    border: 1px solid #2c3142;
+    border-radius: 8px;
+    color: #e6e8ee;
+    padding: 12px 14px;
+    font-size: 13px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    line-height: 1.7;
+    outline: none;
+    resize: vertical;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  textarea:focus {
+    border-color: #4f8cff;
+    box-shadow: 0 0 0 3px rgba(79, 140, 255, .15);
+  }
+  textarea::placeholder { color: #5b6379; }
+
+  /* ---------- 按钮 ---------- */
+  .btn {
+    border: 1px solid #2c3142;
+    background: #1d2230;
+    color: #e6e8ee;
+    padding: 10px 18px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    font-family: inherit;
+    transition: background .15s, border-color .15s, transform .05s;
+  }
+  .btn:hover { background: #262c3d; border-color: #3a4157; }
+  .btn:active { transform: translateY(1px); }
+  .btn.primary {
+    background: #4f8cff;
+    border-color: #4f8cff;
+    color: #fff;
+    font-weight: 600;
+  }
+  .btn.primary:hover { background: #3d7bf0; border-color: #3d7bf0; }
+  .btn.tiny { padding: 4px 11px; font-size: 12px; border-radius: 6px; }
+  .btn.danger {
+    background: transparent;
+    border-color: #3a2630;
+    color: #ff7a7a;
+  }
+  .btn.danger:hover { background: #2a1a20; border-color: #5c3340; }
+
+  .btn-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-top: 12px;
+  }
+
+  /* ---------- 记录列表 ---------- */
+  .records {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .empty {
+    text-align: center;
+    color: #5b6379;
+    font-size: 13px;
+    padding: 24px 0;
+    border: 1px dashed #232838;
+    border-radius: 8px;
+  }
+  .record {
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+    justify-content: space-between;
+    background: #14171f;
+    border: 1px solid #232838;
+    border-radius: 10px;
+    padding: 12px 14px;
+  }
+  .record-info { flex: 1; min-width: 0; }
+  .record-name {
+    font-size: 15px;
+    font-weight: 600;
+    color: #e6e8ee;
+    margin-bottom: 4px;
+    word-break: break-all;
+  }
+  .record-name .tag {
+    display: inline-block;
+    background: #223052;
+    color: #7aa6ff;
+    font-size: 12px;
+    font-weight: 500;
+    padding: 1px 9px;
+    border-radius: 20px;
+    margin-left: 8px;
+    vertical-align: middle;
+  }
+  .record-meta {
+    font-size: 12px;
+    color: #8b93a7;
+    margin-bottom: 4px;
+  }
+  .record-slots {
+    font-size: 12px;
+    color: #8b93a7;
+    line-height: 1.8;
+    word-break: break-all;
+  }
+
+  /* ---------- 输出 ---------- */
+  .panel {
+    background: #181b24;
+    border: 1px solid #232838;
+    border-radius: 12px;
+    margin-top: 14px;
+    overflow: hidden;
+  }
+  .panel-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 11px 16px;
+    background: #14171f;
+    border-bottom: 1px solid #232838;
+    font-size: 13px;
+    color: #a8b0c2;
+    letter-spacing: .5px;
+  }
+  #mdOut {
+    border: none;
+    border-radius: 0;
+    background: #10131a;
+    min-height: 220px;
+    padding: 16px;
+    white-space: pre;
+    overflow-x: auto;
+  }
+  #mdOut:focus { box-shadow: none; }
+
+  .md-body {
+    padding: 16px 20px;
+    overflow-x: auto;
+  }
+  .md-body table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 13px;
+  }
+  .md-body th, .md-body td {
+    border: 1px solid #2c3142;
+    padding: 9px 12px;
+    text-align: left;
+    vertical-align: top;
+    line-height: 1.7;
+  }
+  .md-body th {
+    background: #1d2230;
+    color: #cfd5e3;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .md-body td { background: #14171f; word-break: break-word; }
+  .md-body strong { color: #f0b429; }
+
+  .foot {
+    text-align: center;
+    font-size: 12px;
+    color: #5b6379;
+    margin-top: 34px;
+    letter-spacing: .5px;
+  }
+
+  @media (max-width: 560px) {
+    .site-header .brand { font-size: 24px; }
+    .btn-row .btn { flex: 1 1 100%; }
+    .record { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header class="site-header">
+    <div class="brand">=78D13= matches</div>
+    <h1>比赛总表生成器</h1>
+  </header>
+
+  <!-- 1. 录入 -->
+  <section class="card">
+    <h2>1. 录入队员数据</h2>
+    <div class="note">
+      把 <code>index.html</code> 里点“生成 Markdown 代码”得到的那一行，粘贴到下面。
+      可以一次粘贴多行（每行一个队员）。数据会一直累积，不会覆盖。
+    </div>
+    <textarea id="inputArea" rows="5"
+      placeholder="| 昵称 | 队伍 | 科技树 | 车位1 | 车位2 | ... |"></textarea>
+    <div class="btn-row">
+      <button type="button" class="btn primary" id="btnAdd">添加到总表</button>
+      <span class="hint" id="addHint"></span>
+    </div>
+  </section>
+
+  <!-- 2. 已录入 -->
+  <section class="card">
+    <h2>2. 已录入队员 <span class="hint" id="countHint">共 0 条</span></h2>
+    <div id="recordsList" class="records"></div>
+    <div class="btn-row">
+      <button type="button" class="btn danger" id="btnClear">清除所有数据</button>
+      <button type="button" class="btn" id="btnExport">导出 CSV</button>
+      <button type="button" class="btn" id="btnImport">导入 CSV</button>
+      <input type="file" id="importFile" accept=".csv,text/csv" hidden />
+    </div>
+  </section>
+
+  <!-- 3. 输出 -->
+  <section class="card">
+    <h2>3. 总表输出</h2>
+    <div class="note">
+      点击下方按钮生成总表。表格按队伍自动分列，每一行从各队依次取一名队员并排展示。
+      缺员的位置自动留空。
+    </div>
+    <div class="btn-row">
+      <button type="button" class="btn primary" id="btnGen">生成 Markdown 代码</button>
+      <button type="button" class="btn" id="btnPrev">预览 Markdown</button>
+      <button type="button" class="btn" id="btnCopy">复制代码</button>
+    </div>
+
+    <div id="outputWrap" hidden>
+      <div class="panel" id="codePanel">
+        <div class="panel-head"><span>Markdown 代码</span></div>
+        <textarea id="mdOut" readonly spellcheck="false"></textarea>
+      </div>
+      <div class="panel" id="previewPanel">
+        <div class="panel-head"><span>Markdown 预览</span></div>
+        <div class="md-body" id="previewOut"></div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="foot">
+    =78D13= · 数据保存在本浏览器，刷新不丢，清除需手动操作
+  </footer>
+
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* =========================================================
+   *  常量
+   * ========================================================= */
+
+  const STORAGE_KEY = '78d13_records_v2';
+  const ESCAPE = '\uE000';   // 私有区占位符，用于保护已转义的 \|
+
+  /* =========================================================
+   *  DOM
+   * ========================================================= */
+
+  const inputArea   = document.getElementById('inputArea');
+  const btnAdd      = document.getElementById('btnAdd');
+  const addHint     = document.getElementById('addHint');
+  const recordsList = document.getElementById('recordsList');
+  const countHint   = document.getElementById('countHint');
+  const btnClear    = document.getElementById('btnClear');
+  const btnExport   = document.getElementById('btnExport');
+  const btnImport   = document.getElementById('btnImport');
+  const importFile  = document.getElementById('importFile');
+  const btnGen      = document.getElementById('btnGen');
+  const btnPrev     = document.getElementById('btnPrev');
+  const btnCopy     = document.getElementById('btnCopy');
+  const outputWrap  = document.getElementById('outputWrap');
+  const mdOut       = document.getElementById('mdOut');
+  const previewOut  = document.getElementById('previewOut');
+
+  /* =========================================================
+   *  状态
+   * ========================================================= */
+
+  let records = [];
+
+  /* =========================================================
+   *  本地存储
+   * ========================================================= */
+
+  function load() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      const data = raw ? JSON.parse(raw) : [];
+      records = Array.isArray(data) ? data : [];
+    } catch (e) {
+      records = [];
+    }
+  }
+
+  function save() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+    } catch (e) {
+      alert('保存到浏览器失败：' + e.message);
+    }
+  }
+
+  /* =========================================================
+   *  工具函数
+   * ========================================================= */
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function newId() {
+    return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  }
+
+  /* =========================================================
+   *  解析 index.html 生成的 Markdown 单行
+   *
+   *  格式：| 昵称 | 队伍 | 科技树 | 车位1 | 车位2 | ... | 车位N |
+   *  其中单元格内的 | 会被转义为 \|
+   * ========================================================= */
+
+  function parseLine(line) {
+    let s = String(line).trim();
+    if (!s) return null;
+
+    // 必须是表格行
+    if (s.charAt(0) !== '|') return null;
+
+    // 去掉首尾的 |
+    s = s.slice(1);
+    if (s.charAt(s.length - 1) === '|') s = s.slice(0, -1);
+
+    // 保护已转义的 \|
+    s = s.replace(/\\\|/g, ESCAPE);
+
+    const parts = s.split('|').map(function (p) {
+      return p.trim().replace(new RegExp(ESCAPE, 'g'), '|');
+    });
+
+    // 至少需要 昵称 / 队伍 / 科技树 三列
+    if (parts.length < 3) return null;
+    if (!parts[0]) return null;
+
+    return {
+      id:       newId(),
+      nickname: parts[0],
+      team:     parts[1],
+      techTree: parts[2],
+      slots:    parts.slice(3),
+      addedAt:  new Date().toISOString()
+    };
+  }
+
+  /* =========================================================
+   *  渲染记录列表
+   * ========================================================= */
+
+  function render() {
+    countHint.textContent = '共 ' + records.length + ' 条';
+
+    if (!records.length) {
+      recordsList.innerHTML = '<div class="empty">还没有录入任何队员</div>';
+      return;
+    }
+
+    recordsList.innerHTML = '';
+
+    records.forEach(function (rec) {
+      const card = document.createElement('div');
+      card.className = 'record';
+
+      const info = document.createElement('div');
+      info.className = 'record-info';
+
+      /* 昵称 + 队伍标签 */
+      const nameLine = document.createElement('div');
+      nameLine.className = 'record-name';
+      nameLine.innerHTML =
+        escapeHtml(rec.nickname) +
+        ' <span class="tag">' + escapeHtml(rec.team || '未分队') + '</span>';
+
+      /* 科技树 */
+      const meta = document.createElement('div');
+      meta.className = 'record-meta';
+      meta.textContent = '科技树：' + (rec.techTree || '—');
+
+      /* 车位列表 */
+      const slotList = document.createElement('div');
+      slotList.className = 'record-slots';
+      (rec.slots || []).forEach(function (slot, i) {
+        if (!slot) return;
+        const div = document.createElement('div');
+        div.textContent = '车位' + (i + 1) + '：' + slot;
+        slotList.appendChild(div);
+      });
+
+      info.appendChild(nameLine);
+      info.appendChild(meta);
+      info.appendChild(slotList);
+
+      /* 删除按钮 */
+      const del = document.createElement('button');
+      del.type = 'button';
+      del.className = 'btn tiny danger';
+      del.textContent = '删除';
+      del.addEventListener('click', function () {
+        if (!confirm('确定删除 ' + rec.nickname + '（' + rec.team + '）的记录？')) return;
+        records = records.filter(function (r) { return r.id !== rec.id; });
+        save();
+        render();
+      });
+
+      card.appendChild(info);
+      card.appendChild(del);
+      recordsList.appendChild(card);
+    });
+  }
+
+  /* =========================================================
+   *  添加数据（支持一次多行）
+   * ========================================================= */
+
+  function onAdd() {
+    const text = inputArea.value.trim();
+
+    if (!text) {
+      addHint.textContent = '请先粘贴 Markdown 内容';
+      addHint.className = 'hint error';
+      return;
+    }
+
+    const lines = text.split(/\r?\n/);
+    let added = 0;
+    let skipped = 0;
+    const duplicates = [];
+
+    lines.forEach(function (line) {
+      const rec = parseLine(line);
+      if (!rec) { if (line.trim()) skipped++; return; }
+
+      // 同名同队视为重复
+      const dup = records.some(function (r) {
+        return r.nickname === rec.nickname && r.team === rec.team;
+      });
+      if (dup) {
+        duplicates.push(rec.nickname + '（' + rec.team + '）');
+        return;
+      }
+
+      records.push(rec);
+      added++;
+    });
+
+    if (added > 0) {
+      save();
+      render();
+      inputArea.value = '';
+    }
+
+    const msg = [];
+    if (added) msg.push('成功添加 ' + added + ' 条');
+    if (duplicates.length) msg.push('跳过重复 ' + duplicates.length + ' 条：' + duplicates.join('、'));
+    if (skipped) msg.push('忽略无效行 ' + skipped + ' 条');
+
+    addHint.textContent = msg.join(' · ') || '未添加任何数据';
+    addHint.className = 'hint ' + (added ? 'ok' : 'error');
+  }
+
+  /* =========================================================
+   *  生成总表
+   *
+   *  按队伍分组 → 每行从各队依次取一名队员并排
+   *  列顺序 = 队伍首次出现的顺序
+   * ========================================================= */
+
+  function buildTable() {
+    if (!records.length) return '';
+
+    const teams = [];
+    const groups = {};
+
+    records.forEach(function (rec) {
+      const t = rec.team || '未分队';
+      if (!groups[t]) {
+        groups[t] = [];
+        teams.push(t);
+      }
+      groups[t].push(rec);
+    });
+
+    const maxLen = Math.max.apply(null, teams.map(function (t) {
+      return groups[t].length;
+    }));
+
+    // 表头
+    const header = '| # | ' + teams.map(mdCell).join(' | ') + ' |';
+    const sep    = '| :---: | ' + teams.map(function () { return ':---:'; }).join(' | ') + ' |';
+
+    // 数据行
+    const rows = [];
+    for (let i = 0; i < maxLen; i++) {
+      const cells = [String(i + 1)];
+      teams.forEach(function (t) {
+        const rec = groups[t][i];
+        cells.push(rec ? formatCell(rec) : '');
+      });
+      rows.push('| ' + cells.join(' | ') + ' |');
+    }
+
+    return [header, sep].concat(rows).join('\n');
+  }
+
+  function formatCell(rec) {
+    const lines = [];
+    lines.push('**' + rec.nickname + '**');
+    lines.push('科技树：' + (rec.techTree || '—'));
+    (rec.slots || []).forEach(function (slot, i) {
+      if (!slot) return;
+      lines.push('车位' + (i + 1) + '：' + slot);
+    });
+    return lines.join('<br>');
+  }
+
+  function mdCell(s) {
+    if (s === undefined || s === null) return '';
+    return String(s).replace(/\|/g, '\\|').replace(/\r?\n/g, ' ').trim();
+  }
+
+  /* =========================================================
+   *  预览渲染（迷你 Markdown 表格渲染）
+   * ========================================================= */
+
+  function splitRow(line) {
+    let s = line.trim();
+    if (s.charAt(0) === '|') s = s.slice(1);
+    if (s.charAt(s.length - 1) === '|') s = s.slice(0, -1);
+    s = s.replace(/\\\|/g, ESCAPE);
+    return s.split('|').map(function (p) {
+      return p.trim().replace(new RegExp(ESCAPE, 'g'), '|');
+    });
+  }
+
+  function isSepRow(cells) {
+    return cells.length > 0 && cells.every(function (c) {
+      return /^:?-{2,}:?$/.test(c);
+    });
+  }
+
+  function inlineMd(s) {
+    return escapeHtml(s)
+      // 允许单元格内的 <br> 换行
+      .replace(/&lt;br\s*\/?&gt;/gi, '<br>')
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/`(.+?)`/g, '<code>$1</code>');
+  }
+
+  function renderPreview(md) {
+    const lines = md.split(/\r?\n/);
+    const rows = lines.map(splitRow);
+    const hasHeader = rows.length >= 2 && isSepRow(rows[1]);
+
+    let html = '<table>';
+    rows.forEach(function (cells, idx) {
+      if (isSepRow(cells)) return;
+      const tag = (idx === 0 && hasHeader) ? 'th' : 'td';
+      html += '<tr>';
+      cells.forEach(function (c) {
+        html += '<' + tag + '>' + inlineMd(c) + '</' + tag + '>';
+      });
+      html += '</tr>';
+    });
+    html += '</table>';
+    return html;
+  }
+
+  /* =========================================================
+   *  CSV 生成
+   * ========================================================= */
+
+  function csvCell(v) {
+    const s = (v === undefined || v === null) ? '' : String(v);
+    // 含逗号、引号、换行 → 用双引号包裹，内部引号翻倍
+    if (/[",\r\n]/.test(s)) {
+      return '"' + s.replace(/"/g, '""') + '"';
+    }
+    return s;
+  }
+
+  function buildCSV() {
+    if (!records.length) return '';
+
+    // 取所有记录里最长的车位数量，保证列数一致
+    let maxSlots = 0;
+    records.forEach(function (r) {
+      const n = (r.slots || []).length;
+      if (n > maxSlots) maxSlots = n;
+    });
+    if (maxSlots === 0) maxSlots = 1;
+
+    // 表头
+    const headers = ['昵称', '队伍', '科技树'];
+    for (let i = 0; i < maxSlots; i++) headers.push('车位' + (i + 1));
+
+    // 数据行
+    const rows = [headers];
+    records.forEach(function (r) {
+      const row = [r.nickname, r.team, r.techTree];
+      for (let i = 0; i < maxSlots; i++) {
+        row.push((r.slots && r.slots[i]) || '');
+      }
+      rows.push(row);
+    });
+
+    // 前面加 BOM，Excel 打开中文不乱码
+    return '\uFEFF' + rows.map(function (row) {
+      return row.map(csvCell).join(',');
+    }).join('\r\n');
+  }
+
+  /* =========================================================
+   *  CSV 解析
+   * ========================================================= */
+
+  function parseCSV(text) {
+    // 去掉 BOM
+    if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+
+    const rows = [];
+    let row = [];
+    let field = '';
+    let inQuotes = false;
+
+    for (let i = 0; i < text.length; i++) {
+      const c = text[i];
+
+      if (inQuotes) {
+        if (c === '"') {
+          if (text[i + 1] === '"') { field += '"'; i++; }
+          else inQuotes = false;
+        } else {
+          field += c;
+        }
+      } else {
+        if (c === '"')       inQuotes = true;
+        else if (c === ',')  { row.push(field); field = ''; }
+        else if (c === '\r') { /* 忽略 */ }
+        else if (c === '\n') { row.push(field); rows.push(row); row = []; field = ''; }
+        else                 field += c;
+      }
+    }
+
+    if (field !== '' || row.length > 0) {
+      row.push(field);
+      rows.push(row);
+    }
+
+    return rows;
+  }
+
+  function recordsFromCSV(text) {
+    const rows = parseCSV(text).filter(function (r) {
+      return r.some(function (c) { return String(c).trim() !== ''; });
+    });
+
+    if (rows.length < 2) throw new Error('CSV 文件为空或格式不正确');
+
+    const headers = rows[0].map(function (h) { return String(h).trim(); });
+    const idxNick = headers.indexOf('昵称');
+    const idxTeam = headers.indexOf('队伍');
+    const idxTech = headers.indexOf('科技树');
+
+    if (idxNick < 0 || idxTeam < 0 || idxTech < 0) {
+      throw new Error('CSV 表头必须包含「昵称」「队伍」「科技树」列');
+    }
+
+    // 车位列 = 表头里形如「车位N」的列，按出现顺序
+    const slotIndexes = [];
+    headers.forEach(function (h, i) {
+      if (/^车位\d+$/.test(h)) slotIndexes.push(i);
+    });
+
+    const list = [];
+    for (let i = 1; i < rows.length; i++) {
+      const row = rows[i];
+      const nickname = String(row[idxNick] || '').trim();
+      const team     = String(row[idxTeam] || '').trim();
+      if (!nickname || !team) continue;
+
+      const slots = slotIndexes.map(function (si) {
+        return String(row[si] || '').trim();
+      }).filter(function (s) { return s !== ''; });
+
+      list.push({
+        id:       newId(),
+        nickname: nickname,
+        team:     team,
+        techTree: String(row[idxTech] || '').trim(),
+        slots:    slots,
+        addedAt:  new Date().toISOString()
+      });
+    }
+
+    return list;
+  }
+
+  /* =========================================================
+   *  保存文件（优先弹出「另存为」对话框）
+   * ========================================================= */
+
+  async function saveWithPicker(content, suggestedName) {
+    // 优先：File System Access API（Chrome / Edge / Opera）
+    if (window.showSaveFilePicker) {
+      try {
+        const handle = await window.showSaveFilePicker({
+          suggestedName: suggestedName,
+          types: [{
+            description: 'CSV 表格文件',
+            accept: { 'text/csv': ['.csv'] }
+          }]
+        });
+        const writable = await handle.createWritable();
+        await writable.write(content);
+        await writable.close();
+        return 'saved';
+      } catch (e) {
+        if (e.name === 'AbortError') return 'cancelled';  // 用户取消
+        console.warn('showSaveFilePicker 不可用，回退到下载：', e);
+      }
+    }
+
+    // 回退：普通下载（Firefox / Safari）
+    const blob = new Blob([content], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = suggestedName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+    return 'downloaded';
+  }
+
+  /* =========================================================
+   *  按钮行为
+   * ========================================================= */
+
+  function onGen() {
+    const md = buildTable();
+    if (!md) { alert('还没有录入任何队员'); return; }
+
+    mdOut.value = md;
+    previewOut.innerHTML = '';
+    outputWrap.hidden = false;
+    document.getElementById('codePanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function onPrev() {
+    const md = buildTable();
+    if (!md) { alert('还没有录入任何队员'); return; }
+
+    mdOut.value = '';
+    previewOut.innerHTML = renderPreview(md);
+    outputWrap.hidden = false;
+    document.getElementById('previewPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  async function onCopy() {
+    if (!mdOut.value) { alert('请先生成 Markdown 代码'); return; }
+
+    try {
+      await navigator.clipboard.writeText(mdOut.value);
+    } catch (e) {
+      mdOut.removeAttribute('readonly');
+      mdOut.select();
+      try { document.execCommand('copy'); } catch (e2) { /* 忽略 */ }
+      mdOut.setAttribute('readonly', 'readonly');
+    }
+
+    btnCopy.textContent = '已复制 ✓';
+    setTimeout(function () { btnCopy.textContent = '复制代码'; }, 1500);
+  }
+
+  function onClear() {
+    if (!records.length) return;
+
+    if (!confirm('确定清除全部 ' + records.length + ' 条记录？此操作不可恢复。')) return;
+    if (!confirm('再次确认：真的要清除所有数据吗？')) return;
+
+    records = [];
+    save();
+    render();
+
+    outputWrap.hidden = true;
+    mdOut.value = '';
+    previewOut.innerHTML = '';
+    addHint.textContent = '';
+    addHint.className = 'hint';
+  }
+
+  async function onExport() {
+    if (!records.length) { alert('没有数据可导出'); return; }
+
+    const csv = buildCSV();
+    const date = new Date().toISOString().slice(0, 10);
+    const filename = '78d13_records_' + date + '.csv';
+
+    const result = await saveWithPicker(csv, filename);
+
+    if (result === 'downloaded') {
+      alert('当前浏览器不支持手动指定保存位置，文件已下载到默认下载文件夹。\n建议使用 Chrome 或 Edge 以获得「另存为」对话框。');
+    }
+  }
+
+  function onImport() {
+    importFile.click();
+  }
+
+  function onImportFile() {
+    const file = importFile.files && importFile.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+
+    reader.onload = function () {
+      try {
+        const list = recordsFromCSV(String(reader.result));
+        if (!list.length) throw new Error('没有有效数据');
+
+        const merge = confirm(
+          '导入 ' + list.length + ' 条数据。\n\n' +
+          '点「确定」= 合并到现有数据（跳过重复）\n' +
+          '点「取消」= 替换全部现有数据'
+        );
+
+        if (merge) {
+          let added = 0;
+          list.forEach(function (r) {
+            const dup = records.some(function (x) {
+              return x.nickname === r.nickname && x.team === r.team;
+            });
+            if (dup) return;
+            records.push(r);
+            added++;
+          });
+          save();
+          render();
+          alert('合并完成，新增 ' + added + ' 条');
+        } else {
+          if (!confirm('替换会清空现有全部数据，确定继续？')) {
+            importFile.value = '';
+            return;
+          }
+          records = list;
+          save();
+          render();
+          alert('替换完成，共 ' + records.length + ' 条');
+        }
+      } catch (e) {
+        alert('导入失败：' + e.message);
+      }
+
+      importFile.value = '';
+    };
+
+    reader.readAsText(file, 'utf-8');
+  }
+
+  /* =========================================================
+   *  初始化
+   * ========================================================= */
+
+  function init() {
+    load();
+    render();
+
+    btnAdd.addEventListener('click', onAdd);
+    btnGen.addEventListener('click', onGen);
+    btnPrev.addEventListener('click', onPrev);
+    btnCopy.addEventListener('click', onCopy);
+    btnClear.addEventListener('click', onClear);
+    btnExport.addEventListener('click', onExport);
+    btnImport.addEventListener('click', onImport);
+    importFile.addEventListener('change', onImportFile);
+
+    // Ctrl / Cmd + Enter 快速添加
+    inputArea.addEventListener('keydown', function (e) {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        onAdd();
+      }
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+
+})();
+</script>
+</body>
+</html>
