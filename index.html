@@ -63,6 +63,7 @@
     gap: 10px;
     flex-wrap: wrap;
   }
+  .card h2.alt { border-left-color: #f0b429; }
   .hint {
     font-size: 12px;
     color: #8b93a7;
@@ -84,6 +85,7 @@
     margin-bottom: 14px;
     line-height: 1.7;
   }
+  .note.gold { border-left-color: #f0b429; }
   .note code {
     background: #232838;
     padding: 1px 6px;
@@ -133,6 +135,13 @@
     font-weight: 600;
   }
   .btn.primary:hover { background: #3d7bf0; border-color: #3d7bf0; }
+  .btn.gold {
+    background: #f0b429;
+    border-color: #f0b429;
+    color: #1a1400;
+    font-weight: 600;
+  }
+  .btn.gold:hover { background: #dda317; border-color: #dda317; }
   .btn.tiny { padding: 4px 11px; font-size: 12px; border-radius: 6px; }
   .btn.danger {
     background: transparent;
@@ -147,6 +156,45 @@
     flex-wrap: wrap;
     align-items: center;
     margin-top: 12px;
+  }
+
+  /* ---------- 分队伍按钮区 ---------- */
+  .team-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .team-block {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    background: #14171f;
+    border: 1px solid #232838;
+    border-radius: 10px;
+    padding: 12px 16px;
+    flex-wrap: wrap;
+  }
+  .team-block .team-name {
+    font-size: 15px;
+    font-weight: 600;
+    color: #e6e8ee;
+  }
+  .team-block .team-name .count {
+    display: inline-block;
+    background: #223052;
+    color: #7aa6ff;
+    font-size: 12px;
+    font-weight: 500;
+    padding: 1px 9px;
+    border-radius: 20px;
+    margin-left: 8px;
+    vertical-align: middle;
+  }
+  .team-block .team-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
   }
 
   /* ---------- 记录列表 ---------- */
@@ -272,6 +320,9 @@
     .site-header .brand { font-size: 24px; }
     .btn-row .btn { flex: 1 1 100%; }
     .record { flex-direction: column; }
+    .team-block { flex-direction: column; align-items: stretch; }
+    .team-block .team-actions { width: 100%; }
+    .team-block .team-actions .btn { flex: 1; }
   }
 </style>
 </head>
@@ -304,17 +355,17 @@
     <div id="recordsList" class="records"></div>
     <div class="btn-row">
       <button type="button" class="btn danger" id="btnClear">清除所有数据</button>
-      <button type="button" class="btn" id="btnExport">导出 CSV</button>
+      <button type="button" class="btn" id="btnExport">导出全部 CSV</button>
       <button type="button" class="btn" id="btnImport">导入 CSV</button>
       <input type="file" id="importFile" accept=".csv,text/csv" hidden />
     </div>
   </section>
 
-  <!-- 3. 输出 -->
+  <!-- 3. 总表输出 -->
   <section class="card">
-    <h2>3. 总表输出</h2>
+    <h2>3. 并排总表输出</h2>
     <div class="note">
-      点击下方按钮生成总表。表格按队伍自动分列，每一行从各队依次取一名队员并排展示。
+      生成左右并排的总表（A队 | B队），用于展示。每一行从两队依次取一名队员并排展示，
       缺员的位置自动留空。
     </div>
     <div class="btn-row">
@@ -335,6 +386,19 @@
     </div>
   </section>
 
+  <!-- 4. 分队伍名单 -->
+  <section class="card">
+    <h2 class="alt">4. 分队伍名单（打分系统输入）</h2>
+    <div class="note gold">
+      只识别 <code>A队</code> 和 <code>B队</code>。每队单独导出一个 CSV，一行一个队员，
+      可直接作为打分系统的输入。
+    </div>
+    <div class="team-list" id="teamList"></div>
+    <div class="btn-row" style="margin-top:14px;">
+      <button type="button" class="btn" id="btnExportAllTeams">导出全部队伍（单文件）</button>
+    </div>
+  </section>
+
   <footer class="foot">
     =78D13= · 数据保存在本浏览器，刷新不丢，清除需手动操作
   </footer>
@@ -352,25 +416,32 @@
   const STORAGE_KEY = '78d13_records_v2';
   const ESCAPE = '\uE000';   // 私有区占位符，用于保护已转义的 \|
 
+  // 固定两支队伍，顺序决定总表左右
+  const TEAM_A = 'A队';
+  const TEAM_B = 'B队';
+  const TEAMS  = [TEAM_A, TEAM_B];
+
   /* =========================================================
    *  DOM
    * ========================================================= */
 
-  const inputArea   = document.getElementById('inputArea');
-  const btnAdd      = document.getElementById('btnAdd');
-  const addHint     = document.getElementById('addHint');
-  const recordsList = document.getElementById('recordsList');
-  const countHint   = document.getElementById('countHint');
-  const btnClear    = document.getElementById('btnClear');
-  const btnExport   = document.getElementById('btnExport');
-  const btnImport   = document.getElementById('btnImport');
-  const importFile  = document.getElementById('importFile');
-  const btnGen      = document.getElementById('btnGen');
-  const btnPrev     = document.getElementById('btnPrev');
-  const btnCopy     = document.getElementById('btnCopy');
-  const outputWrap  = document.getElementById('outputWrap');
-  const mdOut       = document.getElementById('mdOut');
-  const previewOut  = document.getElementById('previewOut');
+  const inputArea       = document.getElementById('inputArea');
+  const btnAdd          = document.getElementById('btnAdd');
+  const addHint         = document.getElementById('addHint');
+  const recordsList     = document.getElementById('recordsList');
+  const countHint       = document.getElementById('countHint');
+  const btnClear        = document.getElementById('btnClear');
+  const btnExport       = document.getElementById('btnExport');
+  const btnImport       = document.getElementById('btnImport');
+  const importFile      = document.getElementById('importFile');
+  const btnGen          = document.getElementById('btnGen');
+  const btnPrev         = document.getElementById('btnPrev');
+  const btnCopy         = document.getElementById('btnCopy');
+  const outputWrap      = document.getElementById('outputWrap');
+  const mdOut           = document.getElementById('mdOut');
+  const previewOut      = document.getElementById('previewOut');
+  const teamList        = document.getElementById('teamList');
+  const btnExportAllTeams = document.getElementById('btnExportAllTeams');
 
   /* =========================================================
    *  状态
@@ -414,6 +485,14 @@
     return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
   }
 
+  function isKnownTeam(t) {
+    return t === TEAM_A || t === TEAM_B;
+  }
+
+  function teamMembers(teamName) {
+    return records.filter(function (r) { return r.team === teamName; });
+  }
+
   /* =========================================================
    *  解析 index.html 生成的 Markdown 单行
    *
@@ -424,22 +503,17 @@
   function parseLine(line) {
     let s = String(line).trim();
     if (!s) return null;
-
-    // 必须是表格行
     if (s.charAt(0) !== '|') return null;
 
-    // 去掉首尾的 |
     s = s.slice(1);
     if (s.charAt(s.length - 1) === '|') s = s.slice(0, -1);
 
-    // 保护已转义的 \|
     s = s.replace(/\\\|/g, ESCAPE);
 
     const parts = s.split('|').map(function (p) {
       return p.trim().replace(new RegExp(ESCAPE, 'g'), '|');
     });
 
-    // 至少需要 昵称 / 队伍 / 科技树 三列
     if (parts.length < 3) return null;
     if (!parts[0]) return null;
 
@@ -462,6 +536,7 @@
 
     if (!records.length) {
       recordsList.innerHTML = '<div class="empty">还没有录入任何队员</div>';
+      renderTeamList();
       return;
     }
 
@@ -474,19 +549,16 @@
       const info = document.createElement('div');
       info.className = 'record-info';
 
-      /* 昵称 + 队伍标签 */
       const nameLine = document.createElement('div');
       nameLine.className = 'record-name';
       nameLine.innerHTML =
         escapeHtml(rec.nickname) +
         ' <span class="tag">' + escapeHtml(rec.team || '未分队') + '</span>';
 
-      /* 科技树 */
       const meta = document.createElement('div');
       meta.className = 'record-meta';
       meta.textContent = '科技树：' + (rec.techTree || '—');
 
-      /* 车位列表 */
       const slotList = document.createElement('div');
       slotList.className = 'record-slots';
       (rec.slots || []).forEach(function (slot, i) {
@@ -500,7 +572,6 @@
       info.appendChild(meta);
       info.appendChild(slotList);
 
-      /* 删除按钮 */
       const del = document.createElement('button');
       del.type = 'button';
       del.className = 'btn tiny danger';
@@ -516,6 +587,45 @@
       card.appendChild(del);
       recordsList.appendChild(card);
     });
+
+    renderTeamList();
+  }
+
+  /* =========================================================
+   *  渲染分队伍列表（固定 A队 / B队）
+   * ========================================================= */
+
+  function renderTeamList() {
+    teamList.innerHTML = '';
+
+    TEAMS.forEach(function (t) {
+      const members = teamMembers(t);
+
+      const block = document.createElement('div');
+      block.className = 'team-block';
+
+      const nameEl = document.createElement('div');
+      nameEl.className = 'team-name';
+      nameEl.innerHTML = escapeHtml(t) +
+        '<span class="count">' + members.length + ' 人</span>';
+
+      const actions = document.createElement('div');
+      actions.className = 'team-actions';
+
+      const expBtn = document.createElement('button');
+      expBtn.type = 'button';
+      expBtn.className = 'btn gold';
+      expBtn.textContent = '导出 ' + t + ' 名单 (CSV)';
+      expBtn.disabled = members.length === 0;
+      expBtn.addEventListener('click', function () { exportTeamCSV(t); });
+
+      actions.appendChild(expBtn);
+      block.appendChild(nameEl);
+      block.appendChild(actions);
+      teamList.appendChild(block);
+    });
+
+    btnExportAllTeams.disabled = records.length === 0;
   }
 
   /* =========================================================
@@ -535,10 +645,17 @@
     let added = 0;
     let skipped = 0;
     const duplicates = [];
+    const unknownTeams = [];
 
     lines.forEach(function (line) {
       const rec = parseLine(line);
       if (!rec) { if (line.trim()) skipped++; return; }
+
+      // 队伍必须是 A队 或 B队
+      if (!isKnownTeam(rec.team)) {
+        unknownTeams.push(rec.nickname + '（' + (rec.team || '空') + '）');
+        return;
+      }
 
       // 同名同队视为重复
       const dup = records.some(function (r) {
@@ -562,6 +679,7 @@
     const msg = [];
     if (added) msg.push('成功添加 ' + added + ' 条');
     if (duplicates.length) msg.push('跳过重复 ' + duplicates.length + ' 条：' + duplicates.join('、'));
+    if (unknownTeams.length) msg.push('队伍无效 ' + unknownTeams.length + ' 条：' + unknownTeams.join('、'));
     if (skipped) msg.push('忽略无效行 ' + skipped + ' 条');
 
     addHint.textContent = msg.join(' · ') || '未添加任何数据';
@@ -569,40 +687,29 @@
   }
 
   /* =========================================================
-   *  生成总表
-   *
-   *  按队伍分组 → 每行从各队依次取一名队员并排
-   *  列顺序 = 队伍首次出现的顺序
+   *  生成并排总表（固定 A队 | B队）
    * ========================================================= */
 
   function buildTable() {
     if (!records.length) return '';
 
-    const teams = [];
     const groups = {};
+    TEAMS.forEach(function (t) { groups[t] = teamMembers(t); });
 
-    records.forEach(function (rec) {
-      const t = rec.team || '未分队';
-      if (!groups[t]) {
-        groups[t] = [];
-        teams.push(t);
-      }
-      groups[t].push(rec);
-    });
+    const maxLen = Math.max(
+      groups[TEAM_A].length,
+      groups[TEAM_B].length
+    );
 
-    const maxLen = Math.max.apply(null, teams.map(function (t) {
-      return groups[t].length;
-    }));
+    if (maxLen === 0) return '';
 
-    // 表头
-    const header = '| # | ' + teams.map(mdCell).join(' | ') + ' |';
-    const sep    = '| :---: | ' + teams.map(function () { return ':---:'; }).join(' | ') + ' |';
+    const header = '| # | ' + TEAMS.map(mdCell).join(' | ') + ' |';
+    const sep    = '| :---: | ' + TEAMS.map(function () { return ':---:'; }).join(' | ') + ' |';
 
-    // 数据行
     const rows = [];
     for (let i = 0; i < maxLen; i++) {
       const cells = [String(i + 1)];
-      teams.forEach(function (t) {
+      TEAMS.forEach(function (t) {
         const rec = groups[t][i];
         cells.push(rec ? formatCell(rec) : '');
       });
@@ -650,7 +757,6 @@
 
   function inlineMd(s) {
     return escapeHtml(s)
-      // 允许单元格内的 <br> 换行
       .replace(/&lt;br\s*\/?&gt;/gi, '<br>')
       .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
       .replace(/`(.+?)`/g, '<code>$1</code>');
@@ -681,39 +787,88 @@
 
   function csvCell(v) {
     const s = (v === undefined || v === null) ? '' : String(v);
-    // 含逗号、引号、换行 → 用双引号包裹，内部引号翻倍
     if (/[",\r\n]/.test(s)) {
       return '"' + s.replace(/"/g, '""') + '"';
     }
     return s;
   }
 
+  function maxSlotCount(list) {
+    let n = 0;
+    list.forEach(function (r) {
+      const c = (r.slots || []).length;
+      if (c > n) n = c;
+    });
+    return n || 1;
+  }
+
+  /* 全部队员 CSV */
   function buildCSV() {
     if (!records.length) return '';
 
-    // 取所有记录里最长的车位数量，保证列数一致
-    let maxSlots = 0;
-    records.forEach(function (r) {
-      const n = (r.slots || []).length;
-      if (n > maxSlots) maxSlots = n;
-    });
-    if (maxSlots === 0) maxSlots = 1;
-
-    // 表头
+    const slots = maxSlotCount(records);
     const headers = ['昵称', '队伍', '科技树'];
-    for (let i = 0; i < maxSlots; i++) headers.push('车位' + (i + 1));
+    for (let i = 0; i < slots; i++) headers.push('车位' + (i + 1));
 
-    // 数据行
     const rows = [headers];
     records.forEach(function (r) {
       const row = [r.nickname, r.team, r.techTree];
-      for (let i = 0; i < maxSlots; i++) {
+      for (let i = 0; i < slots; i++) {
         row.push((r.slots && r.slots[i]) || '');
       }
       rows.push(row);
     });
 
-    // 前面加 BOM，Excel 打开中文不乱码
+    return '\uFEFF' + rows.map(function (row) {
+      return row.map(csvCell).join(',');
+    }).join('\r\n');
+  }
+
+  /* 单队名单 CSV（打分系统输入） */
+  function buildTeamCSV(teamName) {
+    const members = teamMembers(teamName);
+    if (!members.length) return '';
+
+    const slots = maxSlotCount(members);
+
+    const headers = ['序号', '昵称', '科技树'];
+    for (let i = 0; i < slots; i++) headers.push('车位' + (i + 1));
+
+    const rows = [headers];
+    members.forEach(function (r, i) {
+      const row = [String(i + 1), r.nickname, r.techTree];
+      for (let j = 0; j < slots; j++) {
+        row.push((r.slots && r.slots[j]) || '');
+      }
+      rows.push(row);
+    });
+
+    return '\uFEFF' + rows.map(function (row) {
+      return row.map(csvCell).join(',');
+    }).join('\r\n');
+  }
+
+  /* 两队合并到单文件 */
+  function buildAllTeamsCSV() {
+    if (!records.length) return '';
+
+    const slots = maxSlotCount(records);
+
+    const headers = ['序号', '队伍', '昵称', '科技树'];
+    for (let i = 0; i < slots; i++) headers.push('车位' + (i + 1));
+
+    const rows = [headers];
+    let idx = 1;
+    TEAMS.forEach(function (t) {
+      teamMembers(t).forEach(function (r) {
+        const row = [String(idx++), t, r.nickname, r.techTree];
+        for (let j = 0; j < slots; j++) {
+          row.push((r.slots && r.slots[j]) || '');
+        }
+        rows.push(row);
+      });
+    });
+
     return '\uFEFF' + rows.map(function (row) {
       return row.map(csvCell).join(',');
     }).join('\r\n');
@@ -724,7 +879,6 @@
    * ========================================================= */
 
   function parseCSV(text) {
-    // 去掉 BOM
     if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
 
     const rows = [];
@@ -775,7 +929,6 @@
       throw new Error('CSV 表头必须包含「昵称」「队伍」「科技树」列');
     }
 
-    // 车位列 = 表头里形如「车位N」的列，按出现顺序
     const slotIndexes = [];
     headers.forEach(function (h, i) {
       if (/^车位\d+$/.test(h)) slotIndexes.push(i);
@@ -810,7 +963,6 @@
    * ========================================================= */
 
   async function saveWithPicker(content, suggestedName) {
-    // 优先：File System Access API（Chrome / Edge / Opera）
     if (window.showSaveFilePicker) {
       try {
         const handle = await window.showSaveFilePicker({
@@ -825,12 +977,11 @@
         await writable.close();
         return 'saved';
       } catch (e) {
-        if (e.name === 'AbortError') return 'cancelled';  // 用户取消
+        if (e.name === 'AbortError') return 'cancelled';
         console.warn('showSaveFilePicker 不可用，回退到下载：', e);
       }
     }
 
-    // 回退：普通下载（Firefox / Safari）
     const blob = new Blob([content], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -841,6 +992,14 @@
     document.body.removeChild(a);
     setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
     return 'downloaded';
+  }
+
+  function safeFilename(s) {
+    return String(s).replace(/[\\/:*?"<>|\s]+/g, '_');
+  }
+
+  function today() {
+    return new Date().toISOString().slice(0, 10);
   }
 
   /* =========================================================
@@ -904,8 +1063,7 @@
     if (!records.length) { alert('没有数据可导出'); return; }
 
     const csv = buildCSV();
-    const date = new Date().toISOString().slice(0, 10);
-    const filename = '78d13_records_' + date + '.csv';
+    const filename = '78d13_records_' + today() + '.csv';
 
     const result = await saveWithPicker(csv, filename);
 
@@ -926,11 +1084,20 @@
 
     reader.onload = function () {
       try {
-        const list = recordsFromCSV(String(reader.result));
-        if (!list.length) throw new Error('没有有效数据');
+        const rawList = recordsFromCSV(String(reader.result));
+        if (!rawList.length) throw new Error('没有有效数据');
+
+        // 过滤掉队伍不是 A队/B队 的行
+        const list = rawList.filter(function (r) { return isKnownTeam(r.team); });
+        const dropped = rawList.length - list.length;
+
+        if (!list.length) {
+          throw new Error('没有队伍为「A队」或「B队」的数据');
+        }
 
         const merge = confirm(
-          '导入 ' + list.length + ' 条数据。\n\n' +
+          '导入 ' + list.length + ' 条数据' +
+          (dropped ? '（另有 ' + dropped + ' 条因队伍名无效被忽略）' : '') + '。\n\n' +
           '点「确定」= 合并到现有数据（跳过重复）\n' +
           '点「取消」= 替换全部现有数据'
         );
@@ -947,7 +1114,8 @@
           });
           save();
           render();
-          alert('合并完成，新增 ' + added + ' 条');
+          alert('合并完成，新增 ' + added + ' 条' +
+                (dropped ? '，忽略 ' + dropped + ' 条无效队伍' : ''));
         } else {
           if (!confirm('替换会清空现有全部数据，确定继续？')) {
             importFile.value = '';
@@ -968,6 +1136,34 @@
     reader.readAsText(file, 'utf-8');
   }
 
+  /* 导出单个队伍名单 */
+  async function exportTeamCSV(teamName) {
+    const csv = buildTeamCSV(teamName);
+    if (!csv) { alert('该队伍没有队员'); return; }
+
+    const filename = '78d13_' + safeFilename(teamName) + '_' + today() + '.csv';
+
+    const result = await saveWithPicker(csv, filename);
+
+    if (result === 'downloaded') {
+      alert('当前浏览器不支持手动指定保存位置，文件已下载到默认下载文件夹。\n建议使用 Chrome 或 Edge 以获得「另存为」对话框。');
+    }
+  }
+
+  /* 导出两队合并到单文件 */
+  async function onExportAllTeams() {
+    if (!records.length) { alert('没有数据可导出'); return; }
+
+    const csv = buildAllTeamsCSV();
+    const filename = '78d13_all_teams_' + today() + '.csv';
+
+    const result = await saveWithPicker(csv, filename);
+
+    if (result === 'downloaded') {
+      alert('当前浏览器不支持手动指定保存位置，文件已下载到默认下载文件夹。\n建议使用 Chrome 或 Edge 以获得「另存为」对话框。');
+    }
+  }
+
   /* =========================================================
    *  初始化
    * ========================================================= */
@@ -984,8 +1180,8 @@
     btnExport.addEventListener('click', onExport);
     btnImport.addEventListener('click', onImport);
     importFile.addEventListener('change', onImportFile);
+    btnExportAllTeams.addEventListener('click', onExportAllTeams);
 
-    // Ctrl / Cmd + Enter 快速添加
     inputArea.addEventListener('keydown', function (e) {
       if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
         e.preventDefault();
