@@ -341,8 +341,8 @@
       把 <code>index.html</code> 里点“生成 Markdown 代码”得到的那一行，粘贴到下面。
       可以一次粘贴多行（每行一个队员）。数据会一直累积，不会覆盖。
     </div>
-    <textarea id="inputArea" rows="5"
-      placeholder="| 昵称 | 队伍 | 科技树 | 车位1 | 车位2 | ... |"></textarea>
+      <textarea id="inputArea" rows="5"
+      placeholder="| 昵称 | id | 身份 | 队伍 | 科技树 | 车位1 | 车位2 | ... |"></textarea>
     <div class="btn-row">
       <button type="button" class="btn primary" id="btnAdd">添加到总表</button>
       <span class="hint" id="addHint"></span>
@@ -500,7 +500,7 @@
    *  其中单元格内的 | 会被转义为 \|
    * ========================================================= */
 
-  function parseLine(line) {
+    function parseLine(line) {
     let s = String(line).trim();
     if (!s) return null;
     if (s.charAt(0) !== '|') return null;
@@ -514,19 +514,26 @@
       return p.trim().replace(new RegExp(ESCAPE, 'g'), '|');
     });
 
-    if (parts.length < 3) return null;
+    // 新格式：昵称 | id | 身份 | 队伍 | 科技树 | 车位1 | 车位2 | ...
+    if (parts.length < 5) return null;
     if (!parts[0]) return null;
+
+    // 过滤掉空车位与「无」车位
+    const slots = parts.slice(5).filter(function (v) {
+      return v && v !== '无';
+    });
 
     return {
       id:       newId(),
       nickname: parts[0],
-      team:     parts[1],
-      techTree: parts[2],
-      slots:    parts.slice(3),
+      gaijinId: parts[1],
+      identity: parts[2],
+      team:     parts[3],
+      techTree: parts[4],
+      slots:    slots,
       addedAt:  new Date().toISOString()
     };
   }
-
   /* =========================================================
    *  渲染记录列表
    * ========================================================= */
@@ -555,10 +562,11 @@
         escapeHtml(rec.nickname) +
         ' <span class="tag">' + escapeHtml(rec.team || '未分队') + '</span>';
 
-      const meta = document.createElement('div');
+            const meta = document.createElement('div');
       meta.className = 'record-meta';
-      meta.textContent = '科技树：' + (rec.techTree || '—');
-
+      meta.textContent = 'ID：' + (rec.gaijinId || '—') +
+                        '身份：' + (rec.identity || '—') +
+                        '科技树：' + (rec.techTree || '—');
       const slotList = document.createElement('div');
       slotList.className = 'record-slots';
       (rec.slots || []).forEach(function (slot, i) {
@@ -803,18 +811,18 @@
   }
 
   /* 全部队员 CSV */
-  function buildCSV() {
+    function buildCSV() {
     if (!records.length) return '';
 
     const slots = maxSlotCount(records);
-    const headers = ['昵称', '队伍', '科技树'];
+    const headers = ['昵称', '玩家ID', '身份', '队伍', '科技树'];
     for (let i = 0; i < slots; i++) headers.push('车位' + (i + 1));
 
     const rows = [headers];
     records.forEach(function (r) {
-      const row = [r.nickname, r.team, r.techTree];
+      const row = [r.nickname, r.gaijinId || '', r.identity || '', r.team, r.techTree];
       for (let i = 0; i < slots; i++) {
-        row.push((r.slots && r.slots[i]) || '');
+        row.push((r.slots && r.slots[i]) || '无');
       }
       rows.push(row);
     });
@@ -825,20 +833,20 @@
   }
 
   /* 单队名单 CSV（打分系统输入） */
-  function buildTeamCSV(teamName) {
+    function buildTeamCSV(teamName) {
     const members = teamMembers(teamName);
     if (!members.length) return '';
 
     const slots = maxSlotCount(members);
 
-    const headers = ['序号', '昵称', '科技树'];
+    const headers = ['序号', '昵称', '玩家ID', '身份', '科技树'];
     for (let i = 0; i < slots; i++) headers.push('车位' + (i + 1));
 
     const rows = [headers];
     members.forEach(function (r, i) {
-      const row = [String(i + 1), r.nickname, r.techTree];
+      const row = [String(i + 1), r.nickname, r.gaijinId || '', r.identity || '', r.techTree];
       for (let j = 0; j < slots; j++) {
-        row.push((r.slots && r.slots[j]) || '');
+        row.push((r.slots && r.slots[j]) || '无');
       }
       rows.push(row);
     });
@@ -849,21 +857,21 @@
   }
 
   /* 两队合并到单文件 */
-  function buildAllTeamsCSV() {
+    function buildAllTeamsCSV() {
     if (!records.length) return '';
 
     const slots = maxSlotCount(records);
 
-    const headers = ['序号', '队伍', '昵称', '科技树'];
+    const headers = ['序号', '队伍', '昵称', '玩家ID', '身份', '科技树'];
     for (let i = 0; i < slots; i++) headers.push('车位' + (i + 1));
 
     const rows = [headers];
     let idx = 1;
     TEAMS.forEach(function (t) {
       teamMembers(t).forEach(function (r) {
-        const row = [String(idx++), t, r.nickname, r.techTree];
+        const row = [String(idx++), t, r.nickname, r.gaijinId || '', r.identity || '', r.techTree];
         for (let j = 0; j < slots; j++) {
-          row.push((r.slots && r.slots[j]) || '');
+          row.push((r.slots && r.slots[j]) || '无');
         }
         rows.push(row);
       });
@@ -873,7 +881,6 @@
       return row.map(csvCell).join(',');
     }).join('\r\n');
   }
-
   /* =========================================================
    *  CSV 解析
    * ========================================================= */
@@ -913,7 +920,7 @@
     return rows;
   }
 
-  function recordsFromCSV(text) {
+    function recordsFromCSV(text) {
     const rows = parseCSV(text).filter(function (r) {
       return r.some(function (c) { return String(c).trim() !== ''; });
     });
@@ -921,9 +928,11 @@
     if (rows.length < 2) throw new Error('CSV 文件为空或格式不正确');
 
     const headers = rows[0].map(function (h) { return String(h).trim(); });
-    const idxNick = headers.indexOf('昵称');
-    const idxTeam = headers.indexOf('队伍');
-    const idxTech = headers.indexOf('科技树');
+    const idxNick  = headers.indexOf('昵称');
+    const idxTeam  = headers.indexOf('队伍');
+    const idxTech  = headers.indexOf('科技树');
+    const idxId    = headers.indexOf('玩家ID');
+    const idxIdent = headers.indexOf('身份');
 
     if (idxNick < 0 || idxTeam < 0 || idxTech < 0) {
       throw new Error('CSV 表头必须包含「昵称」「队伍」「科技树」列');
@@ -943,11 +952,13 @@
 
       const slots = slotIndexes.map(function (si) {
         return String(row[si] || '').trim();
-      }).filter(function (s) { return s !== ''; });
+      }).filter(function (s) { return s !== '' && s !== '无'; });
 
       list.push({
         id:       newId(),
         nickname: nickname,
+        gaijinId: idxId    >= 0 ? String(row[idxId]    || '').trim() : '',
+        identity: idxIdent >= 0 ? String(row[idxIdent] || '').trim() : '',
         team:     team,
         techTree: String(row[idxTech] || '').trim(),
         slots:    slots,
